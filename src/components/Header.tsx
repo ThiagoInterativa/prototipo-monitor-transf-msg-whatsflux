@@ -44,7 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
             <p className="text-xs text-slate-400">
-              Fila <strong className="text-slate-200">#{status?.queueId ?? 18}</strong> &bull; Monitora responsáveis e registra alterações em tempo real
+              Monitora e registra em tempo real
             </p>
           </div>
         </div>

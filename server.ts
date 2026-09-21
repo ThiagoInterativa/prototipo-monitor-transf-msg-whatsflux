@@ -902,6 +902,25 @@ async function startServer() {
     }
   });
 
+  // Baixar arquivo do banco de dados SQLite auditoria.db
+  app.get('/api/download-db', (_req, res) => {
+    try {
+      if (!fs.existsSync(DB_FILE)) {
+        res.status(404).json({ error: 'Arquivo auditoria.db não encontrado.' });
+        return;
+      }
+      res.setHeader('Content-Type', 'application/x-sqlite3');
+      res.setHeader('Content-Disposition', 'attachment; filename="auditoria.db"');
+      const fileStream = fs.createReadStream(DB_FILE);
+      fileStream.pipe(res);
+    } catch (err: any) {
+      console.error('Erro ao fazer download do banco de dados auditoria.db:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Erro ao baixar banco de dados auditoria.db' });
+      }
+    }
+  });
+
   // Salvar credenciais no servidor
   app.post('/api/config', (req, res) => {
     const { email, password, queueId, useSimulation } = req.body;

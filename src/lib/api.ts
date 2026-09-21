@@ -140,6 +140,15 @@ export async function deleteSingleAuditRecord(id: number): Promise<{ success: bo
   return res.json();
 }
 
+export function downloadDatabaseFile(): void {
+  const link = document.createElement('a');
+  link.href = '/api/download-db';
+  link.setAttribute('download', 'auditoria.db');
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 export async function deleteSingleMonitoredTicket(ticketId: number | string): Promise<{ success: boolean }> {
   const res = await fetch(`/api/estado-atual/${ticketId}`, { method: 'DELETE' });
   if (!res.ok) {

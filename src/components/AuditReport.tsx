@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AuditRecord } from '../types';
-import { fetchAuditoria, fetchTecnicos, deleteAuditPeriod, deleteSingleAuditRecord } from '../lib/api';
+import { fetchAuditoria, fetchTecnicos, deleteAuditPeriod, deleteSingleAuditRecord, downloadDatabaseFile } from '../lib/api';
 import { formatDateTime, formatPhone, getPastDate, getTodayDate } from '../lib/formatters';
-import { Download, Trash2, Search, Filter, RefreshCw, AlertTriangle, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Download, Trash2, Search, Filter, RefreshCw, AlertTriangle, ArrowRight, CheckCircle2, Database } from 'lucide-react';
 
 interface AuditReportProps {
   onAuditUpdated?: () => void;
@@ -142,6 +142,16 @@ export const AuditReport: React.FC<AuditReportProps> = ({ onAuditUpdated }) => {
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-sky-400' : ''}`} />
             <span>Atualizar</span>
+          </button>
+
+          <button
+            id="btn-download-db"
+            onClick={downloadDatabaseFile}
+            className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Baixar arquivo auditoria.db (SQLite original completo)"
+          >
+            <Database className="w-3.5 h-3.5" />
+            <span>Baixar Banco de Dados</span>
           </button>
 
           <button

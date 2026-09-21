@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { MonitorStatus } from '../types';
-import { updateInterval, startMonitoring, pauseMonitoring, triggerCycle } from '../lib/api';
-import { Sliders, Play, Pause, RefreshCw, Clock, HelpCircle } from 'lucide-react';
+import { updateInterval, startMonitoring, pauseMonitoring, triggerCycle, downloadDatabaseFile } from '../lib/api';
+import { Sliders, Play, Pause, RefreshCw, Clock, HelpCircle, Database } from 'lucide-react';
 
 interface SidebarControlsProps {
   status: MonitorStatus | null;
@@ -165,6 +165,19 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
         >
           <span>Credenciais Seguras do WhatsFlux</span>
           <span className="text-emerald-400">&rarr;</span>
+        </button>
+
+        <button
+          id="btn-sidebar-download-db"
+          onClick={downloadDatabaseFile}
+          className="w-full text-left py-1.5 px-2 rounded-lg text-slate-300 hover:bg-slate-800/80 hover:text-white flex items-center justify-between text-[11px] transition-colors cursor-pointer"
+          title="Baixar arquivo físico auditoria.db (SQLite)"
+        >
+          <span className="flex items-center gap-1.5">
+            <Database className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Baixar auditoria.db</span>
+          </span>
+          <span className="text-emerald-400">&darr;</span>
         </button>
       </div>
     </aside>
