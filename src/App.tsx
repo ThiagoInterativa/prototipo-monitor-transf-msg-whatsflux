@@ -10,11 +10,11 @@ import { MonitoredTicketsView } from './components/MonitoredTicketsView';
 import { SidebarControls } from './components/SidebarControls';
 import { GoogleSitesModal } from './components/GoogleSitesModal';
 import { SecurityConfigModal } from './components/SecurityConfigModal';
-import { FileText, Users, Globe, Shield, Bell } from 'lucide-react';
+import { FileText, Users, Shield, Bell } from 'lucide-react';
 
 export default function App() {
   const [status, setStatus] = useState<MonitorStatus | null>(null);
-  const [activeTab, setActiveTab] = useState<'auditoria' | 'monitorados' | 'sites'>('auditoria');
+  const [activeTab, setActiveTab] = useState<'auditoria' | 'monitorados'>('auditoria');
   const [isGoogleSitesModalOpen, setIsGoogleSitesModalOpen] = useState(false);
   const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
   const [isTriggering, setIsTriggering] = useState(false);
@@ -175,25 +175,17 @@ export default function App() {
               <Users className="w-4 h-4" />
               <span>Atendimentos Monitorados ({status?.monitoredCount ?? 0})</span>
             </button>
-
-            <button
-              id="tab-sites"
-              onClick={() => setActiveTab('sites')}
-              className={`px-3.5 py-2.5 text-xs sm:text-sm font-semibold rounded-t-lg border-b-2 flex items-center gap-2 transition-all ${
-                activeTab === 'sites'
-                  ? 'border-emerald-500 text-emerald-400 bg-slate-900/60'
-                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/30'
-              }`}
-            >
-              <Globe className="w-4 h-4" />
-              <span>Guia Google Sites</span>
-            </button>
           </div>
 
-          <div className="hidden sm:flex items-center gap-2 text-xs text-slate-400 pr-2">
+          <button
+            id="btn-credenciais-seguras-badge"
+            onClick={() => setIsSecurityModalOpen(true)}
+            className="hidden sm:flex items-center gap-2 text-xs text-slate-300 hover:text-emerald-300 pr-2 py-1 transition-colors cursor-pointer"
+            title="Configurar credenciais seguras"
+          >
             <Shield className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Credenciais Seguras no Servidor</span>
-          </div>
+            <span>Credenciais Seguras</span>
+          </button>
         </div>
 
         {/* Content Layout with Sidebar */}
@@ -201,59 +193,6 @@ export default function App() {
           <div className="lg:col-span-3 space-y-5">
             {activeTab === 'auditoria' && <AuditReport onAuditUpdated={loadStatus} />}
             {activeTab === 'monitorados' && <MonitoredTicketsView onStateCleaned={loadStatus} />}
-            {activeTab === 'sites' && (
-              <div className="bg-slate-900/90 rounded-xl p-5 sm:p-6 border border-slate-800 shadow-sm space-y-4 text-xs">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                    <Globe className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h2 className="text-base sm:text-lg font-bold text-white">
-                      Como hospedar no Google Sites com segurança
-                    </h2>
-                    <p className="text-slate-400">
-                      Instruções para embutir este painel diretamente na intranet ou site da sua empresa.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-                  <h3 className="font-semibold text-white text-sm">Passo 1: Copiar o código de incorporação</h3>
-                  <p className="text-slate-300">
-                    Clique no botão abaixo para abrir a janela com o código iframe personalizado para o Google Sites:
-                  </p>
-                  <button
-                    onClick={() => setIsGoogleSitesModalOpen(true)}
-                    className="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-semibold transition-colors flex items-center gap-2"
-                  >
-                    <Globe className="w-4 h-4" />
-                    <span>Ver Código e Instruções de Incorporação</span>
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-                  <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
-                    <h4 className="font-bold text-emerald-400 flex items-center gap-1.5">
-                      <Shield className="w-4 h-4" />
-                      Por que é mais seguro que o Streamlit?
-                    </h4>
-                    <p className="text-slate-300 text-[11px] leading-relaxed">
-                      No Streamlit tradicional, o segredo ficava no ambiente do cliente ou exposto em arquivos de configuração locais acessíveis por quem executava o app. Aqui, criamos um backend em Node.js: as credenciais ficam em variáveis de ambiente ou protegidas em disco seguro no servidor.
-                    </p>
-                  </div>
-
-                  <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
-                    <h4 className="font-bold text-sky-400 flex items-center gap-1.5">
-                      <Users className="w-4 h-4" />
-                      Acesso dos Usuários no Google Sites
-                    </h4>
-                    <p className="text-slate-300 text-[11px] leading-relaxed">
-                      Qualquer membro da sua equipe que acessar a página no Google Sites poderá visualizar os gráficos, indicadores e transferências em tempo real, sem jamais ver ou poder copiar a senha da sua conta WhatsFlux.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Sidebar with Live Controls */}
@@ -270,7 +209,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="mt-auto border-t border-slate-900 bg-slate-950/90 py-3 text-center text-xs text-slate-500">
-        Auditoria WhatsFlux &bull; Armazenamento SQLite Local &bull; Pronto para Google Sites
+        Auditoria WhatsFlux &bull; Armazenamento SQLite Local &bull; Monitoramento em Tempo Real
       </footer>
 
       {/* Modals */}

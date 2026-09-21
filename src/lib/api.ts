@@ -130,3 +130,21 @@ export async function triggerSimulatedTransfer(): Promise<{ success: boolean; tr
   if (!res.ok) throw new Error('Falha ao simular transferência');
   return res.json();
 }
+
+export async function deleteSingleAuditRecord(id: number): Promise<{ success: boolean; removed: number }> {
+  const res = await fetch(`/api/auditoria/${id}`, { method: 'DELETE' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Falha ao excluir registro de auditoria');
+  }
+  return res.json();
+}
+
+export async function deleteSingleMonitoredTicket(ticketId: number | string): Promise<{ success: boolean }> {
+  const res = await fetch(`/api/estado-atual/${ticketId}`, { method: 'DELETE' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Falha ao excluir atendimento monitorado');
+  }
+  return res.json();
+}

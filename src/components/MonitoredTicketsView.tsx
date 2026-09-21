@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { MonitoredStateItem } from '../types';
-import { fetchMonitoredState, cleanTempState } from '../lib/api';
+import { fetchMonitoredState, cleanTempState, deleteSingleMonitoredTicket } from '../lib/api';
 import { formatDateTime, formatPhone, getPastDate, getTodayDate } from '../lib/formatters';
-import { Users, RefreshCw, Eraser, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { Users, RefreshCw, Eraser, ShieldAlert, CheckCircle2, Trash2 } from 'lucide-react';
 
 interface MonitoredTicketsViewProps {
   onStateCleaned?: () => void;
@@ -15,6 +15,9 @@ export const MonitoredTicketsView: React.FC<MonitoredTicketsViewProps> = ({ onSt
   const [cleanEndDate, setCleanEndDate] = useState(getTodayDate());
   const [cleanConfirmModal, setCleanConfirmModal] = useState<boolean>(false);
   const [openTicketsCount, setOpenTicketsCount] = useState<number>(0);
+  const [selectedItem, setSelectedItem] = useState<MonitoredStateItem | null>(null);
+  const [ticketToDelete, setTicketToDelete] = useState<MonitoredStateItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
 
   const loadData = useCallback(async () => {
@@ -22,6 +25,7 @@ export const MonitoredTicketsView: React.FC<MonitoredTicketsViewProps> = ({ onSt
     try {
       const data = await fetchMonitoredState();
       setItems(data);
+      setSelectedItem((prev) => (prev ? data.find((it) => it.ticket_id === prev.ticket_id) || null : null));
     } catch (err: any) {
       setFeedback({ type: 'error', message: err.message || 'Falha ao buscar atendimentos monitorados' });
     } finally {
@@ -59,6 +63,28 @@ export const MonitoredTicketsView: React.FC<MonitoredTicketsViewProps> = ({ onSt
     }
   };
 
+  const handleConfirmSingleDelete = async () => {
+    if (!ticketToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteSingleMonitoredTicket(ticketToDelete.ticket_id);
+      setFeedback({
+        type: 'success',
+        message: `Atendimento do Ticket #${ticketToDelete.ticket_id} (${ticketToDelete.cliente || 'Sem nome'}) removido do monitoramento com sucesso.`,
+      });
+      if (selectedItem?.ticket_id === ticketToDelete.ticket_id) {
+        setSelectedItem(null);
+      }
+      setTicketToDelete(null);
+      loadData();
+      if (onStateCleaned) onStateCleaned();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Erro ao excluir atendimento monitorado' });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="bg-slate-900/90 rounded-xl p-4 sm:p-6 border border-slate-800 shadow-sm space-y-5">
       {/* Header */}
@@ -73,15 +99,39 @@ export const MonitoredTicketsView: React.FC<MonitoredTicketsViewProps> = ({ onSt
           </p>
         </div>
 
-        <button
-          id="btn-refresh-monitored"
-          onClick={loadData}
-          disabled={loading}
-          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center gap-1.5 transition-colors self-start sm:self-auto"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-sky-400' : ''}`} />
-          <span>Atualizar</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Botão de Excluir Atendimento Selecionado */}
+          <button
+            id="btn-delete-selected-monitored"
+            disabled={!selectedItem || loading || isDeleting}
+            onClick={() => selectedItem && setTicketToDelete(selectedItem)}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all shadow-sm ${
+              selectedItem
+                ? 'bg-rose-600 hover:bg-rose-500 text-white ring-2 ring-rose-400/40 cursor-pointer animate-pulse'
+                : 'bg-slate-800/80 text-slate-500 border border-slate-700/60 cursor-not-allowed opacity-60'
+            }`}
+            title={
+              selectedItem
+                ? `Excluir o atendimento selecionado (#${selectedItem.ticket_id})`
+                : 'Selecione um atendimento na tabela abaixo para excluir'
+            }
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>
+              {selectedItem ? `Excluir Selecionado (#${selectedItem.ticket_id})` : 'Excluir Selecionado'}
+            </span>
+          </button>
+
+          <button
+            id="btn-refresh-monitored"
+            onClick={loadData}
+            disabled={loading}
+            className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center gap-1.5 transition-colors self-start sm:self-auto"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-sky-400' : ''}`} />
+            <span>Atualizar</span>
+          </button>
+        </div>
       </div>
 
       {/* Info notice */}
@@ -149,6 +199,48 @@ export const MonitoredTicketsView: React.FC<MonitoredTicketsViewProps> = ({ onSt
         </div>
       </div>
 
+      {/* Confirmation Modal for Single Monitored Ticket Delete */}
+      {ticketToDelete && (
+        <div className="p-4 rounded-xl bg-rose-950/40 border border-rose-600/60 text-xs text-rose-200 space-y-3 shadow-lg animate-fadeIn">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-rose-900/60 text-rose-300 shrink-0">
+              <Trash2 className="w-5 h-5 text-rose-400" />
+            </div>
+            <div className="flex-1 space-y-1">
+              <p className="font-bold text-white text-sm">
+                Excluir Atendimento do Monitoramento?
+              </p>
+              <div className="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800 text-[11.5px] space-y-1 text-slate-300">
+                <div><span className="text-slate-400">Ticket:</span> <strong className="text-indigo-400 font-mono">#{ticketToDelete.ticket_id}</strong></div>
+                <div><span className="text-slate-400">Cliente:</span> <strong className="text-white">{ticketToDelete.cliente || 'Sem nome'}</strong> ({formatPhone(ticketToDelete.telefone)})</div>
+                <div><span className="text-slate-400">Técnico Rastreado:</span> <strong className="text-emerald-400">{ticketToDelete.tecnico}</strong></div>
+                <div><span className="text-slate-400">Detectado em:</span> <span className="font-mono text-slate-300">{formatDateTime(ticketToDelete.detectado_em)}</span></div>
+              </div>
+              <p className="text-rose-300/90 text-[11px]">
+                Apenas este atendimento selecionado será removido do estado temporário de monitoramento. Se o ticket continuar na fila, ele será reavaliado no próximo ciclo.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-end gap-2 pt-1 border-t border-rose-900/40">
+            <button
+              onClick={() => setTicketToDelete(null)}
+              disabled={isDeleting}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleConfirmSingleDelete}
+              disabled={isDeleting}
+              className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-md transition-colors disabled:opacity-50 flex items-center gap-1.5"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{isDeleting ? 'Excluindo...' : 'Sim, Excluir Atendimento'}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Confirmation Modal */}
       {cleanConfirmModal && (
         <div className="p-4 rounded-lg bg-amber-950/40 border border-amber-800/60 text-xs text-amber-200 space-y-3">
@@ -183,59 +275,104 @@ export const MonitoredTicketsView: React.FC<MonitoredTicketsViewProps> = ({ onSt
 
       {/* Table of active monitored tickets */}
       <div className="border border-slate-800 rounded-lg overflow-hidden bg-slate-950/40">
-        <div className="px-4 py-2.5 bg-slate-900/80 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400">
-          <span>
-            Total em monitoramento: <strong className="text-white">{items.length}</strong>
-          </span>
+        <div className="px-4 py-2.5 bg-slate-900/80 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+          <div className="flex items-center gap-2">
+            <span>
+              Total em monitoramento: <strong className="text-white">{items.length}</strong>
+            </span>
+            {selectedItem && (
+              <span className="px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800/60 font-medium text-[11px] flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-indigo-400" />
+                Ticket #{selectedItem.ticket_id} selecionado
+              </span>
+            )}
+          </div>
+          <span className="text-[11px]">Clique em uma linha para selecionar</span>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-900 text-slate-400 border-b border-slate-800 uppercase tracking-wider text-[10px]">
               <tr>
+                <th className="py-2.5 px-3 w-10 text-center">Sel.</th>
                 <th className="py-2.5 px-3">Ticket</th>
                 <th className="py-2.5 px-3">Cliente</th>
                 <th className="py-2.5 px-3">Telefone</th>
                 <th className="py-2.5 px-3">Técnico Atual</th>
                 <th className="py-2.5 px-3">Detectado em</th>
+                <th className="py-2.5 px-3 text-right">Ação</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-slate-500">
+                  <td colSpan={7} className="py-8 text-center text-slate-500">
                     <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-indigo-400" />
                     Carregando atendimentos...
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-slate-500">
+                  <td colSpan={7} className="py-8 text-center text-slate-500">
                     Nenhum atendimento com técnico atribuído no momento.
                   </td>
                 </tr>
               ) : (
-                items.map((row) => (
-                  <tr key={row.ticket_id} className="hover:bg-slate-800/40 transition-colors">
-                    <td className="py-2.5 px-3 whitespace-nowrap">
-                      <span className="font-bold text-indigo-400 bg-indigo-950/40 border border-indigo-800/40 px-2 py-0.5 rounded text-[11px]">
-                        #{row.ticket_id}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 font-medium text-white max-w-[200px] truncate">
-                      {row.cliente || 'Sem nome'}
-                    </td>
-                    <td className="py-2.5 px-3 whitespace-nowrap font-mono text-slate-400 text-[11px]">
-                      {formatPhone(row.telefone)}
-                    </td>
-                    <td className="py-2.5 px-3 whitespace-nowrap font-semibold text-emerald-400">
-                      {row.tecnico}
-                    </td>
-                    <td className="py-2.5 px-3 whitespace-nowrap font-mono text-slate-400 text-[11px]">
-                      {formatDateTime(row.detectado_em)}
-                    </td>
-                  </tr>
-                ))
+                items.map((row) => {
+                  const isSelected = selectedItem?.ticket_id === row.ticket_id;
+                  return (
+                    <tr
+                      key={row.ticket_id}
+                      onClick={() => setSelectedItem(isSelected ? null : row)}
+                      className={`cursor-pointer transition-colors ${
+                        isSelected
+                          ? 'bg-indigo-950/40 border-l-4 border-l-indigo-500 hover:bg-indigo-950/60'
+                          : 'hover:bg-slate-800/40'
+                      }`}
+                    >
+                      <td className="py-2.5 px-3 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="radio"
+                          name="selectedMonitoredTicket"
+                          checked={isSelected}
+                          onChange={() => setSelectedItem(row)}
+                          className="w-3.5 h-3.5 text-indigo-500 bg-slate-900 border-slate-700 cursor-pointer"
+                          title="Selecionar este atendimento"
+                        />
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        <span className="font-bold text-indigo-400 bg-indigo-950/40 border border-indigo-800/40 px-2 py-0.5 rounded text-[11px]">
+                          #{row.ticket_id}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 font-medium text-white max-w-[200px] truncate">
+                        {row.cliente || 'Sem nome'}
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap font-mono text-slate-400 text-[11px]">
+                        {formatPhone(row.telefone)}
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap font-semibold text-emerald-400">
+                        {row.tecnico}
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap font-mono text-slate-400 text-[11px]">
+                        {formatDateTime(row.detectado_em)}
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => {
+                            setSelectedItem(row);
+                            setTicketToDelete(row);
+                          }}
+                          className="p-1.5 rounded-lg bg-rose-950/30 hover:bg-rose-900/60 text-rose-400 border border-rose-800/30 hover:border-rose-600 transition-colors inline-flex items-center gap-1 text-[11px]"
+                          title="Excluir este atendimento do monitoramento"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Excluir</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

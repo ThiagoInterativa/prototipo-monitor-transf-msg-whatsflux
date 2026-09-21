@@ -771,6 +771,41 @@ async function startServer() {
     });
   });
 
+  // Excluir registro individual de auditoria por ID
+  app.delete('/api/auditoria/:id', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      res.status(400).json({ error: 'ID inválido' });
+      return;
+    }
+    try {
+      const stmt = db.prepare('DELETE FROM auditoria WHERE id = ?');
+      const info = stmt.run(id);
+      const changes = Number((info as any)?.changes || 0);
+      if (changes > 0) {
+        res.json({ success: true, removed: changes });
+      } else {
+        res.status(404).json({ error: 'Registro não encontrado' });
+      }
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Excluir ticket individual do estado monitorado
+  app.delete('/api/estado-atual/:ticketId', (req, res) => {
+    const ticketId = String(req.params.ticketId);
+    const estado = carregarEstadoTemporario();
+    if (estado[ticketId]) {
+      delete estado[ticketId];
+      salvarEstadoTemporario(estado);
+      monitorState.monitoredCount = Object.keys(estado).length;
+      res.json({ success: true, removedTicketId: ticketId });
+    } else {
+      res.status(404).json({ error: 'Atendimento não encontrado no monitoramento' });
+    }
+  });
+
   // Excluir auditoria por período
   app.post('/api/excluir-auditoria', (req, res) => {
     const { startDate, endDate } = req.body;

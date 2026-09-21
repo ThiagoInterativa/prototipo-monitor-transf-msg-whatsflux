@@ -160,17 +160,10 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
       {/* Helpful Shortcuts */}
       <div className="pt-2 border-t border-slate-800 space-y-1.5">
         <button
-          onClick={onOpenGoogleSites}
-          className="w-full text-left py-1.5 px-2 rounded-lg text-slate-300 hover:bg-slate-800/80 hover:text-white flex items-center justify-between text-[11px] transition-colors"
-        >
-          <span>Instruções Google Sites</span>
-          <span className="text-sky-400">&rarr;</span>
-        </button>
-        <button
           onClick={onOpenSecurity}
           className="w-full text-left py-1.5 px-2 rounded-lg text-slate-300 hover:bg-slate-800/80 hover:text-white flex items-center justify-between text-[11px] transition-colors"
         >
-          <span>Credenciais do WhatsFlux</span>
+          <span>Credenciais Seguras do WhatsFlux</span>
           <span className="text-emerald-400">&rarr;</span>
         </button>
       </div>

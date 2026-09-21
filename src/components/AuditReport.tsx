@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AuditRecord } from '../types';
-import { fetchAuditoria, fetchTecnicos, deleteAuditPeriod } from '../lib/api';
+import { fetchAuditoria, fetchTecnicos, deleteAuditPeriod, deleteSingleAuditRecord } from '../lib/api';
 import { formatDateTime, formatPhone, getPastDate, getTodayDate } from '../lib/formatters';
-import { Download, Trash2, Search, Filter, RefreshCw, AlertTriangle, ArrowRight } from 'lucide-react';
+import { Download, Trash2, Search, Filter, RefreshCw, AlertTriangle, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 interface AuditReportProps {
   onAuditUpdated?: () => void;
@@ -17,6 +17,8 @@ export const AuditReport: React.FC<AuditReportProps> = ({ onAuditUpdated }) => {
   const [records, setRecords] = useState<AuditRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState<boolean>(false);
+  const [selectedRecord, setSelectedRecord] = useState<AuditRecord | null>(null);
+  const [recordToDelete, setRecordToDelete] = useState<AuditRecord | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -30,6 +32,8 @@ export const AuditReport: React.FC<AuditReportProps> = ({ onAuditUpdated }) => {
       ]);
       setRecords(resAudit.records);
       setTecnicosList(resTecs);
+      // Mantém a seleção caso o registro ainda exista
+      setSelectedRecord((prev) => (prev ? resAudit.records.find((r) => r.id === prev.id) || null : null));
     } catch (err: any) {
       setFeedback({ type: 'error', message: err.message || 'Erro ao carregar dados de auditoria' });
     } finally {
@@ -62,10 +66,33 @@ export const AuditReport: React.FC<AuditReportProps> = ({ onAuditUpdated }) => {
         message: `Sucesso: ${res.removed} registro(s) excluídos do período selecionado.`,
       });
       setDeleteConfirmOpen(false);
+      setSelectedRecord(null);
       loadData();
       if (onAuditUpdated) onAuditUpdated();
     } catch (err: any) {
       setFeedback({ type: 'error', message: err.message || 'Erro ao excluir período' });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleConfirmSingleDelete = async () => {
+    if (!recordToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteSingleAuditRecord(recordToDelete.id);
+      setFeedback({
+        type: 'success',
+        message: `Registro do Ticket #${recordToDelete.ticket_id} (${recordToDelete.cliente || 'Sem nome'}) excluído com sucesso da auditoria.`,
+      });
+      if (selectedRecord?.id === recordToDelete.id) {
+        setSelectedRecord(null);
+      }
+      setRecordToDelete(null);
+      loadData();
+      if (onAuditUpdated) onAuditUpdated();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Erro ao excluir registro de auditoria' });
     } finally {
       setIsDeleting(false);
     }
@@ -80,11 +107,33 @@ export const AuditReport: React.FC<AuditReportProps> = ({ onAuditUpdated }) => {
             <span>📄</span> Relatório de Auditoria de Transferências
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Histórico permanente salvo no banco SQLite. Permite filtros, pesquisa e exportação oficial em CSV.
+            Histórico permanente salvo no banco SQLite. Permite filtros, exclusão pontual e exportação oficial em CSV.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Botão de Excluir Registro Selecionado */}
+          <button
+            id="btn-delete-selected-audit"
+            disabled={!selectedRecord || loading || isDeleting}
+            onClick={() => selectedRecord && setRecordToDelete(selectedRecord)}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all shadow-sm ${
+              selectedRecord
+                ? 'bg-rose-600 hover:bg-rose-500 text-white ring-2 ring-rose-400/40 cursor-pointer animate-pulse'
+                : 'bg-slate-800/80 text-slate-500 border border-slate-700/60 cursor-not-allowed opacity-60'
+            }`}
+            title={
+              selectedRecord
+                ? `Excluir o registro selecionado (Ticket #${selectedRecord.ticket_id})`
+                : 'Selecione um registro na tabela abaixo para excluir'
+            }
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>
+              {selectedRecord ? `Excluir Selecionado (#${selectedRecord.ticket_id})` : 'Excluir Selecionado'}
+            </span>
+          </button>
+
           <button
             id="btn-refresh-audit"
             onClick={loadData}
@@ -196,17 +245,59 @@ export const AuditReport: React.FC<AuditReportProps> = ({ onAuditUpdated }) => {
         </div>
       )}
 
-      {/* Confirmation Modal for Delete */}
+      {/* Confirmation Modal for Single Record Delete */}
+      {recordToDelete && (
+        <div className="p-4 rounded-xl bg-rose-950/40 border border-rose-600/60 text-xs text-rose-200 space-y-3 shadow-lg animate-fadeIn">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-rose-900/60 text-rose-300 shrink-0">
+              <Trash2 className="w-5 h-5 text-rose-400" />
+            </div>
+            <div className="flex-1 space-y-1">
+              <p className="font-bold text-white text-sm">
+                Excluir Este Registro de Auditoria?
+              </p>
+              <div className="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800 text-[11.5px] space-y-1 text-slate-300">
+                <div><span className="text-slate-400">Ticket:</span> <strong className="text-sky-400 font-mono">#{recordToDelete.ticket_id}</strong></div>
+                <div><span className="text-slate-400">Cliente:</span> <strong className="text-white">{recordToDelete.cliente || 'Sem nome'}</strong> ({formatPhone(recordToDelete.telefone)})</div>
+                <div><span className="text-slate-400">Transferência:</span> <span className="text-slate-400">{recordToDelete.tecnico_anterior || '—'}</span> <span className="text-amber-400 font-bold">➜</span> <strong className="text-amber-300">{recordToDelete.tecnico_atual}</strong></div>
+                <div><span className="text-slate-400">Data / Hora:</span> <span className="font-mono text-slate-300">{formatDateTime(recordToDelete.data_hora)}</span></div>
+              </div>
+              <p className="text-rose-300/90 text-[11px]">
+                Apenas este único registro selecionado será removido permanentemente da tabela de auditoria SQLite.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-end gap-2 pt-1 border-t border-rose-900/40">
+            <button
+              onClick={() => setRecordToDelete(null)}
+              disabled={isDeleting}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleConfirmSingleDelete}
+              disabled={isDeleting}
+              className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-md transition-colors disabled:opacity-50 flex items-center gap-1.5"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{isDeleting ? 'Excluindo...' : 'Sim, Excluir Este Registro'}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal for Period Delete */}
       {deleteConfirmOpen && (
         <div className="p-4 rounded-lg bg-rose-950/30 border border-rose-800/50 text-xs text-rose-200 space-y-3">
           <div className="flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
             <div>
               <p className="font-semibold text-white">
-                Atenção: Confirma a exclusão permanente dos registros de auditoria entre {startDate} e {endDate}?
+                Atenção: Confirma a exclusão de TODOS os registros de auditoria entre {startDate} e {endDate}?
               </p>
               <p className="text-rose-300 mt-0.5">
-                Esta ação remove as linhas da tabela SQLite e não pode ser desfeita.
+                Esta ação remove todas as linhas do período selecionado e não pode ser desfeita.
               </p>
             </div>
           </div>
@@ -230,17 +321,26 @@ export const AuditReport: React.FC<AuditReportProps> = ({ onAuditUpdated }) => {
 
       {/* Audit Table */}
       <div className="border border-slate-800 rounded-lg overflow-hidden bg-slate-950/40">
-        <div className="px-4 py-2.5 bg-slate-900/80 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400">
-          <span>
-            Exibindo <strong className="text-white">{records.length}</strong> registro(s) de transferência
-          </span>
-          <span>Ordem: Mais recentes primeiro</span>
+        <div className="px-4 py-2.5 bg-slate-900/80 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+          <div className="flex items-center gap-2">
+            <span>
+              Exibindo <strong className="text-white">{records.length}</strong> registro(s) de transferência
+            </span>
+            {selectedRecord && (
+              <span className="px-2 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-800/60 font-medium text-[11px] flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-sky-400" />
+                Ticket #{selectedRecord.ticket_id} selecionado
+              </span>
+            )}
+          </div>
+          <span className="text-[11px]">Clique em uma linha para selecionar</span>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-900 text-slate-400 border-b border-slate-800 uppercase tracking-wider text-[10px]">
               <tr>
+                <th className="py-2.5 px-3 w-10 text-center">Sel.</th>
                 <th className="py-2.5 px-3">Ticket</th>
                 <th className="py-2.5 px-3">Cliente</th>
                 <th className="py-2.5 px-3">Telefone</th>
@@ -248,50 +348,85 @@ export const AuditReport: React.FC<AuditReportProps> = ({ onAuditUpdated }) => {
                 <th className="py-2.5 px-3"></th>
                 <th className="py-2.5 px-3">Novo Técnico</th>
                 <th className="py-2.5 px-3">Data / Hora</th>
+                <th className="py-2.5 px-3 text-right">Ação</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-500">
+                  <td colSpan={9} className="py-8 text-center text-slate-500">
                     <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-sky-400" />
                     Carregando registros...
                   </td>
                 </tr>
               ) : records.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-500">
+                  <td colSpan={9} className="py-8 text-center text-slate-500">
                     Nenhuma transferência encontrada com os filtros selecionados.
                   </td>
                 </tr>
               ) : (
-                records.map((row) => (
-                  <tr key={row.id} className="hover:bg-slate-800/40 transition-colors">
-                    <td className="py-2.5 px-3 whitespace-nowrap">
-                      <span className="font-bold text-sky-400 bg-sky-950/40 border border-sky-800/40 px-2 py-0.5 rounded text-[11px]">
-                        #{row.ticket_id}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 font-medium text-white max-w-[180px] truncate">
-                      {row.cliente || 'Sem nome'}
-                    </td>
-                    <td className="py-2.5 px-3 whitespace-nowrap font-mono text-slate-400 text-[11px]">
-                      {formatPhone(row.telefone)}
-                    </td>
-                    <td className="py-2.5 px-3 whitespace-nowrap text-slate-400">
-                      {row.tecnico_anterior || '—'}
-                    </td>
-                    <td className="py-2.5 px-1 text-center whitespace-nowrap">
-                      <ArrowRight className="w-3.5 h-3.5 text-amber-400 inline" />
-                    </td>
-                    <td className="py-2.5 px-3 whitespace-nowrap font-semibold text-amber-300">
-                      {row.tecnico_atual}
-                    </td>
-                    <td className="py-2.5 px-3 whitespace-nowrap font-mono text-slate-400 text-[11px]">
-                      {formatDateTime(row.data_hora)}
-                    </td>
-                  </tr>
-                ))
+                records.map((row) => {
+                  const isSelected = selectedRecord?.id === row.id;
+                  return (
+                    <tr
+                      key={row.id}
+                      onClick={() => setSelectedRecord(isSelected ? null : row)}
+                      className={`cursor-pointer transition-colors ${
+                        isSelected
+                          ? 'bg-sky-950/40 border-l-4 border-l-sky-500 hover:bg-sky-950/60'
+                          : 'hover:bg-slate-800/40'
+                      }`}
+                    >
+                      <td className="py-2.5 px-3 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="radio"
+                          name="selectedAuditRecord"
+                          checked={isSelected}
+                          onChange={() => setSelectedRecord(row)}
+                          className="w-3.5 h-3.5 text-sky-500 bg-slate-900 border-slate-700 cursor-pointer"
+                          title="Selecionar este registro"
+                        />
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        <span className="font-bold text-sky-400 bg-sky-950/40 border border-sky-800/40 px-2 py-0.5 rounded text-[11px]">
+                          #{row.ticket_id}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 font-medium text-white max-w-[180px] truncate">
+                        {row.cliente || 'Sem nome'}
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap font-mono text-slate-400 text-[11px]">
+                        {formatPhone(row.telefone)}
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap text-slate-400">
+                        {row.tecnico_anterior || '—'}
+                      </td>
+                      <td className="py-2.5 px-1 text-center whitespace-nowrap">
+                        <ArrowRight className="w-3.5 h-3.5 text-amber-400 inline" />
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap font-semibold text-amber-300">
+                        {row.tecnico_atual}
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap font-mono text-slate-400 text-[11px]">
+                        {formatDateTime(row.data_hora)}
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => {
+                            setSelectedRecord(row);
+                            setRecordToDelete(row);
+                          }}
+                          className="p-1.5 rounded-lg bg-rose-950/30 hover:bg-rose-900/60 text-rose-400 border border-rose-800/30 hover:border-rose-600 transition-colors inline-flex items-center gap-1 text-[11px]"
+                          title="Excluir este registro da auditoria"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Excluir</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

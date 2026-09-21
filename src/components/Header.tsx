@@ -1,11 +1,11 @@
 import React from 'react';
 import { MonitorStatus } from '../types';
-import { ShieldCheck, Play, Pause, Globe, Settings, Sparkles, RefreshCw } from 'lucide-react';
+import { ShieldCheck, Play, Pause, Settings, Sparkles, RefreshCw } from 'lucide-react';
 
 interface HeaderProps {
   status: MonitorStatus | null;
   onToggleMonitor: () => void;
-  onOpenGoogleSites: () => void;
+  onOpenGoogleSites?: () => void;
   onOpenSecurity: () => void;
   onSimulateTransfer: () => void;
   onTriggerCycle: () => void;
@@ -15,7 +15,6 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   status,
   onToggleMonitor,
-  onOpenGoogleSites,
   onOpenSecurity,
   onSimulateTransfer,
   onTriggerCycle,
@@ -99,16 +98,6 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="hidden sm:inline">Simular Transferência</span>
           </button>
 
-          {/* Google Sites Modal Button */}
-          <button
-            id="btn-google-sites"
-            onClick={onOpenGoogleSites}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 flex items-center gap-1.5 transition-colors"
-          >
-            <Globe className="w-3.5 h-3.5 text-sky-400" />
-            <span>Google Sites</span>
-          </button>
-
           {/* Security & Credentials Modal Button */}
           <button
             id="btn-security-config"
@@ -116,8 +105,7 @@ export const Header: React.FC<HeaderProps> = ({
             className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition-colors"
           >
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="hidden md:inline">Credenciais Seguras</span>
-            <Settings className="w-3.5 h-3.5 md:hidden text-slate-400" />
+            <span>Credenciais Seguras</span>
           </button>
         </div>
       </div>
