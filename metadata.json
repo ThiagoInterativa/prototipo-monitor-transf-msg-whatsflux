@@ -1,0 +1,6 @@
+{
+  "name": "Auditoria WhatsFlux",
+  "description": "Sistema de monitoramento e auditoria em tempo real de transferências de técnicos no WhatsFlux com armazenamento seguro e suporte para incorporação no Google Sites.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
