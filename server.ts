@@ -397,6 +397,7 @@ interface MonitoringState {
   openTicketsCount: number;
   monitoredCount: number;
   newEntriesCount: number;
+  closedCount: number;
 }
 
 const monitorState: MonitoringState = {
@@ -408,6 +409,7 @@ const monitorState: MonitoringState = {
   openTicketsCount: 0,
   monitoredCount: 0,
   newEntriesCount: 0,
+  closedCount: 0,
 };
 
 let monitoringTimer: NodeJS.Timeout | null = null;
@@ -416,11 +418,25 @@ function processTicket(ticket: any, estado: TempState): { tipo: string; [k: stri
   const ticketId = ticket.id;
   if (!ticketId) return null;
 
+  // Se o status do ticket não estiver aberto, não processa
+  if (ticket.status && ticket.status !== 'open') {
+    if (estado[String(ticketId)]) {
+      delete estado[String(ticketId)];
+    }
+    return null;
+  }
+
   const user = ticket.user;
   const userId = ticket.userId;
 
-  // 1. Sem técnico -> ignora
-  if (!user || !userId) return null;
+  // 1. Sem técnico atribuído -> se estava no estado, o atendimento foi devolvido para a fila
+  // Remove do estado para que quando outro técnico assumir, entre como novo atendimento (e não falsa transferência)
+  if (!user || !userId) {
+    if (estado[String(ticketId)]) {
+      delete estado[String(ticketId)];
+    }
+    return null;
+  }
 
   const tecnicoAtual = user.name;
   if (!tecnicoAtual) return null;
@@ -442,7 +458,7 @@ function processTicket(ticket: any, estado: TempState): { tipo: string; [k: stri
 
   const chave = String(ticketId);
 
-  // 2. Primeira vez
+  // 2. Primeira vez (novo atendimento ou cliente retornou após finalização anterior)
   if (!estado[chave]) {
     estado[chave] = dadosAtuais;
     return {
@@ -457,7 +473,7 @@ function processTicket(ticket: any, estado: TempState): { tipo: string; [k: stri
   const tecnicoAnteriorId = anterior.tecnico_id;
   const tecnicoAnterior = anterior.tecnico;
 
-  // 3. Mesmo técnico
+  // 3. Mesmo técnico continua com o atendimento
   if (String(tecnicoAnteriorId) === String(userId)) {
     estado[chave] = {
       ...anterior,
@@ -471,7 +487,7 @@ function processTicket(ticket: any, estado: TempState): { tipo: string; [k: stri
     return null;
   }
 
-  // 4. Técnico diferente -> Grava transferência
+  // 4. Técnico diferente enquanto o ticket permanece aberto -> Transferência real
   gravarTransferencia(ticket, tecnicoAnteriorId, tecnicoAnterior, userId, tecnicoAtual);
 
   estado[chave] = dadosAtuais;
@@ -491,6 +507,7 @@ async function runMonitoringCycle() {
   let tickets: any[] = [];
   const transferencias: any[] = [];
   let entradas = 0;
+  let finalizadosRemovidos = 0;
 
   try {
     if (serverConfig.useSimulation) {
@@ -499,7 +516,27 @@ async function runMonitoringCycle() {
       tickets = await fetchOpenTicketsWhatsflux();
     }
 
-    for (const ticket of tickets) {
+    // Identifica todos os tickets que estão abertos com status 'open'
+    const ticketsAbertos = tickets.filter((t) => t && t.id && (!t.status || t.status === 'open'));
+    const ticketsAbertosIds = new Set(ticketsAbertos.map((t) => String(t.id)));
+
+    // 1. CORREÇÃO CRÍTICA DE LÓGICA:
+    // Quando o técnico finaliza o atendimento no WhatsFlux, o ticket deixa de estar em aberto.
+    // Imediatamente removemos esse ticket do estado monitorado (temp_state.json).
+    // Assim:
+    // - O ticket finalizado não continua poluindo a lista de monitorados.
+    // - Se o cliente mandar nova mensagem mais tarde e cair com outro técnico,
+    //   ele entrará como um novo atendimento (ENTRADA_MONITORAMENTO),
+    //   impedindo categoricamente falsas transferências!
+    for (const chave of Object.keys(estado)) {
+      if (!ticketsAbertosIds.has(chave)) {
+        delete estado[chave];
+        finalizadosRemovidos++;
+      }
+    }
+
+    // 2. Processa cada ticket que está atualmente aberto
+    for (const ticket of ticketsAbertos) {
       const resultado = processTicket(ticket, estado);
       if (!resultado) continue;
 
@@ -515,14 +552,16 @@ async function runMonitoringCycle() {
     monitorState.totalCycles++;
     monitorState.lastRun = formatIsoNow();
     monitorState.lastError = null;
-    monitorState.openTicketsCount = tickets.length;
+    monitorState.openTicketsCount = ticketsAbertos.length;
     monitorState.monitoredCount = Object.keys(estado).length;
     monitorState.newEntriesCount = entradas;
+    monitorState.closedCount = finalizadosRemovidos;
     monitorState.lastTransfers = transferencias;
 
     return {
-      ticketsAbertos: tickets.length,
+      ticketsAbertos: ticketsAbertos.length,
       entradas,
+      finalizados: finalizadosRemovidos,
       transferencias,
     };
   } catch (err: any) {
@@ -614,6 +653,7 @@ async function startServer() {
       openTicketsCount: monitorState.openTicketsCount,
       monitoredCount: Object.keys(estado).length,
       newEntriesCount: monitorState.newEntriesCount,
+      closedCount: monitorState.closedCount,
       auditTotalCount: countAuditoria(),
       isSimulated: serverConfig.useSimulation,
       credentialsConfigured: Boolean(serverConfig.email && serverConfig.senha),

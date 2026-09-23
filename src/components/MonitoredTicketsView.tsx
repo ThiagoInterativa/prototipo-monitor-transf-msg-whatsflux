@@ -135,13 +135,21 @@ export const MonitoredTicketsView: React.FC<MonitoredTicketsViewProps> = ({ onSt
       </div>
 
       {/* Info notice */}
-      <div className="p-3 rounded-lg bg-indigo-950/30 border border-indigo-800/40 text-xs text-indigo-300 flex items-start gap-2">
-        <CheckCircle2 className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-        <div>
-          <strong className="font-semibold text-white">Como funciona este rastreamento:</strong>
-          <span className="block mt-0.5 text-indigo-200/80">
-            Quando um ticket da fila recebe um responsável pela primeira vez, ele entra nesta lista. Se o técnico mudar nos próximos ciclos, o sistema dispara o alerta e grava a transferência na auditoria SQLite.
-          </span>
+      <div className="p-3.5 rounded-lg bg-emerald-950/30 border border-emerald-800/40 text-xs text-emerald-200 flex items-start gap-2.5">
+        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <strong className="font-semibold text-white">Sincronização em Tempo Real (Fim de Falsas Transferências):</strong>
+            <span className="px-2 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold text-[10px] border border-emerald-500/30">
+              Ativo
+            </span>
+          </div>
+          <p className="text-emerald-100/90 text-[11.5px] leading-relaxed">
+            Assim que você ou outro técnico <strong>finaliza o atendimento no WhatsFlux</strong>, o monitor detecta que a conversa não está mais aberta e <strong>remove imediatamente o atendimento desta lista</strong>.
+          </p>
+          <p className="text-emerald-200/80 text-[11px] leading-relaxed">
+            Se o cliente voltar a mandar mensagem mais tarde e o WhatsFlux encaminhar para outro técnico, o sistema registrará como um <strong>novo atendimento</strong> — garantindo que <strong>não ocorra falsa transferência</strong>.
+          </p>
         </div>
       </div>
 

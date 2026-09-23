@@ -1,7 +1,7 @@
 import React from 'react';
 import { MonitorStatus } from '../types';
 import { formatDateTime } from '../lib/formatters';
-import { Activity, Clock, Layers, AlertTriangle } from 'lucide-react';
+import { Activity, Clock, Layers, AlertTriangle, ShieldCheck } from 'lucide-react';
 
 interface CycleStatusProps {
   status: MonitorStatus | null;
@@ -14,7 +14,7 @@ export const CycleStatus: React.FC<CycleStatusProps> = ({ status }) => {
         <div className="flex items-center gap-2">
           {status?.active ? (
             <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
-              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
               Monitoramento ativo
             </span>
           ) : (
@@ -49,6 +49,14 @@ export const CycleStatus: React.FC<CycleStatusProps> = ({ status }) => {
           <Activity className="w-3.5 h-3.5 text-slate-400" />
           <span>Intervalo:</span>
           <strong className="text-slate-200">{(status?.interval ?? 2.0).toFixed(1)}s</strong>
+        </div>
+
+        <div className="h-3 w-px bg-slate-800 hidden sm:block"></div>
+
+        <div className="flex items-center gap-1.5 text-emerald-400" title="Tickets finalizados no WhatsFlux são removidos automaticamente para evitar falsas transferências">
+          <ShieldCheck className="w-3.5 h-3.5" />
+          <span className="text-slate-300">Auto-limpeza de finalizados:</span>
+          <strong className="font-semibold text-emerald-300">Ativa</strong>
         </div>
       </div>
 

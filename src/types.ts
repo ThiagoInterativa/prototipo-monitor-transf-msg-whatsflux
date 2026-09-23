@@ -67,6 +67,7 @@ export interface MonitorStatus {
   openTicketsCount: number;
   monitoredCount: number;
   newEntriesCount: number;
+  closedCount?: number;
   auditTotalCount: number;
   isSimulated: boolean;
   credentialsConfigured: boolean;
